@@ -41,12 +41,11 @@ ThymeLab Launcher is a desktop application that provides a user-friendly interfa
 4. Launch from:
    - Start Menu: ThymeLab
    - Desktop shortcut (if created)
-   - Installation directory: `ThymeLab.exe`
+   - Installation directory: `ThymeLab-x.x.x.exe`
 
-#### Option 2: Portable ZIP
-1. Download `thymelab-x.x.x.zip`
-2. Extract to desired location
-3. Run `thymeLab-launcher-x.x.x.jar`:
+#### Option 2: Using JAR File
+1. Download `thymeLab-launcher-x.x.x.jar` from the latest release
+2. Run the JAR file:
    - Double-click the JAR file
    - Or via command line:
      ```bash
@@ -59,8 +58,8 @@ ThymeLab Launcher is a desktop application that provides a user-friendly interfa
 Due to Apple Developer ID requirements, macOS users need to build the installer:
 1. Clone the repository:
    ```bash
-   git clone https://github.com/thkwag/thymelab.git
-   cd thymelab
+   git clone https://github.com/thkwag/thymelab-launcher.git
+   cd thymelab-launcher
    ```
 2. Build installer:
    ```bash
@@ -73,26 +72,19 @@ Due to Apple Developer ID requirements, macOS users need to build the installer:
    - Spotlight: ThymeLab
    - Command line: `open -a ThymeLab`
 
-#### Option 2: Portable ZIP
-1. Download `thymelab-x.x.x.zip`
-2. Extract to desired location:
-   ```bash
-   unzip thymelab-x.x.x.zip
-   cd thymelab-x.x.x
-   ```
-3. Run the launcher:
+#### Option 2: Using JAR File
+1. Download `thymeLab-launcher-x.x.x.jar` from the latest release
+2. Run the launcher:
    ```bash
    java -jar thymeLab-launcher-x.x.x.jar
    ```
 
 ### Linux
 
-#### Using Portable ZIP
-1. Download `thymelab-x.x.x.zip`
-2. Extract and run:
+#### Using JAR File
+1. Download `thymeLab-launcher-x.x.x.jar` from the latest release
+2. Run the launcher:
    ```bash
-   unzip thymelab-x.x.x.zip
-   cd thymelab-x.x.x
    java -jar thymeLab-launcher-x.x.x.jar
    ```
 
