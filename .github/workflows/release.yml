@@ -1,0 +1,231 @@
+# Release Workflow
+# This workflow is triggered when a version tag is pushed and performs the following:
+#
+# 1. Version Verification:
+#    - Checks if the version in version.properties matches the tag version
+#    - Fails if versions don't match, preventing accidental mismatched releases
+#
+# 2. Build Process:
+#    - Only proceeds if version verification passes
+#    - Builds the application and creates release artifacts
+#
+# To create a release:
+# 1. Update version.properties with the new version
+# 2. Commit and push the change
+# 3. Create and push a tag matching the version (e.g., v1.0.0)
+
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'  # Semantic versioning tags only
+
+env:
+  JAVA_VERSION: '17'
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set version
+      run: |
+        # Remove 'v' prefix and trim any whitespace
+        VERSION=$(echo "${GITHUB_REF_NAME#v}" | tr -d '[:space:]')
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: Check version.properties
+      id: check_version
+      run: |
+        # Check if file exists
+        if [ ! -f "version.properties" ]; then
+          echo "::error::version.properties file not found"
+          exit 1
+        fi
+
+        # Read and validate version
+        CURRENT_VERSION=$(grep -E "^[[:space:]]*version[[:space:]]*=[[:space:]]*[^[:space:]]" version.properties | head -n 1 | cut -d'=' -f2 | tr -d '[:space:]')
+        
+        # Check if version was found
+        if [ -z "$CURRENT_VERSION" ]; then
+          echo "::error::No valid version found in version.properties"
+          exit 1
+        fi
+        
+        # Debug output
+        echo "Current version from properties: '$CURRENT_VERSION'"
+        echo "Version from tag: '${{ env.VERSION }}'"
+        
+        # Compare versions (case-sensitive)
+        if [ "$CURRENT_VERSION" != "${{ env.VERSION }}" ]; then
+          echo "::error::Version mismatch: version.properties ($CURRENT_VERSION) does not match tag (${{ env.VERSION }})"
+          exit 1
+        fi
+        
+        echo "Version check passed: $CURRENT_VERSION"
+        echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+  build-jar:
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: ${{ env.JAVA_VERSION }}
+        cache: 'gradle'
+
+    - name: Set version
+      run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+
+    - name: Build Launcher JAR
+      run: |
+        ./gradlew clean jar -Pversion=${{ env.VERSION }} --stacktrace || {
+          echo "Build failed. Checking logs..."
+          find . -name "*.log" -type f -exec cat {} \;
+          exit 1
+        }
+
+    - name: Upload JAR artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: jar
+        path: build/libs/thymelab-launcher-${{ env.VERSION }}.jar
+        retention-days: 5
+
+  build-installers:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]
+        include:
+          - os: windows-latest
+            installer_ext: "exe"
+            alt_installer_ext: "msi"
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: ${{ env.JAVA_VERSION }}
+        cache: 'gradle'
+
+    - name: Set version (Windows)
+      shell: pwsh
+      run: echo "VERSION=$($env:GITHUB_REF_NAME -replace '^v','')" >> $env:GITHUB_ENV
+
+    - name: Create installer (Windows)
+      shell: pwsh
+      run: |
+        try {
+          & ./gradlew.bat createInstaller "-Pos=windows" "-Pversion=${{ env.VERSION }}" --stacktrace
+        } catch {
+          Write-Host "Installer creation failed. Checking logs..."
+          Get-ChildItem -Recurse -Filter *.log | Get-Content
+          exit 1
+        }
+        New-Item -ItemType Directory -Force -Path installers
+        $found = $false
+        foreach ($ext in @("exe", "msi")) {
+          $files = Get-ChildItem "build/dist/ThymeLab*.$ext"
+          if ($files) {
+            Copy-Item $files.FullName installers/
+            $found = $true
+          }
+        }
+        if (-not $found) {
+          Write-Host "No installer files found"
+          exit 1
+        }
+        Get-ChildItem installers/
+
+    - name: List build/dist contents (Windows)
+      shell: pwsh
+      run: Get-ChildItem build/dist
+
+    - name: Upload installer artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: installer-${{ runner.os }}
+        path: |
+          installers/ThymeLab*.${{ matrix.installer_ext }}
+          installers/ThymeLab*.${{ matrix.alt_installer_ext }}
+        retention-days: 5
+
+  release:
+    needs: [build-jar, build-installers]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Set version
+      run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Display structure of downloaded files
+      run: ls -R
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: ThymeLab ${{ github.ref_name }}
+        body: |
+          ## ThymeLab ${{ github.ref_name }}
+
+          ### Downloads
+          - **ThymeLab-${{ env.VERSION }}.exe**: Windows installer
+          - **thymelab-launcher-${{ env.VERSION }}.jar**: Launcher JAR (requires Java ${{ env.JAVA_VERSION }})
+
+          ### Installation
+          - **Windows**: Run ThymeLab-${{ env.VERSION }}.exe
+            - **Note**: Windows installers are not signed
+            - When installing, you may see a warning about an unknown publisher
+            - This is expected as the installers are unsigned
+            - To proceed with the installation:
+              1. Right-click the installer and select "Properties"
+              2. Go to the "General" tab
+              3. Click "Unblock" if available, then click "OK"
+            
+          - **macOS**: macOS users need to build the installer locally:
+            ```bash
+            git clone https://github.com/thkwag/thymelab-launcher.git
+            cd thymelab-launcher
+            ./gradlew createInstaller -Pos=mac
+            ```
+            The installer will be created in `build/dist/`
+            
+          - **All OS**: Run the JAR file
+            ```bash
+            java -jar thymelab-launcher-${{ env.VERSION }}.jar
+            ```
+
+          **Full Changelog**: https://github.com/thkwag/thymelab-launcher/compare/v${{ github.event.before }}...${{ github.ref_name }}
+        files: |
+          jar/thymelab-launcher-${{ env.VERSION }}.jar
+          installer-Windows/ThymeLab*
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
