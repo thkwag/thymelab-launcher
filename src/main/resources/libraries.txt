@@ -1,0 +1,25 @@
+Libraries and Licenses
+
+• Spring Boot 3.2.2
+  - Apache License 2.0
+  - https://spring.io/projects/spring-boot
+
+• Thymeleaf 3.1.2
+  - Apache License 2.0
+  - https://www.thymeleaf.org/
+
+• FlatLaf 3.2.1
+  - Apache License 2.0
+  - https://www.formdev.com/flatlaf/
+
+• JSON-java 20231013
+  - Public Domain
+  - https://github.com/stleary/JSON-java
+
+• JAnsi 2.4.1
+  - Apache License 2.0
+  - https://github.com/fusesource/jansi
+
+* Attribution
+  - The ThymeLab logo icon(https://www.flaticon.com/free-icon/flask_11920002) is licensed by Flaticon. 
+  - Icon created by Freepik from www.flaticon.com

@@ -1,0 +1,25 @@
+ThymeLab
+Copyright (c) 2024 THK
+
+This software is licensed under the MIT License.
+See the LICENSE file for the full license text.
+
+This software includes the following third-party components:
+
+Thymeleaf (https://www.thymeleaf.org)
+Licensed under Apache License 2.0
+
+Spring Boot (https://spring.io/projects/spring-boot)
+Licensed under Apache License 2.0
+
+FlatLaf (https://www.formdev.com/flatlaf/)
+Licensed under Apache License 2.0
+
+JSON-java (https://github.com/stleary/JSON-java)
+Released into the Public Domain
+
+JAnsi (https://github.com/fusesource/jansi)
+Licensed under Apache License 2.0 
+
+ThymeLab logo icon (https://www.flaticon.com/free-icon/flask_11920002)
+Licensed by Flaticon

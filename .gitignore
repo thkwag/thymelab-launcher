@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Node
+node_modules/
+out/
+
+# VS Code Extension
+*.vsix
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+.cursorrules

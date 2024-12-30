@@ -1,0 +1,245 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    versions = [
+        projectVersion: '1.0.0',
+        javaTargetVersion: '17',
+        junitVersion: '5.10.1',
+        junitPlatformVersion: '1.10.1',
+        guavaVersion: '32.1.3-jre',
+        flatlafVersion: '3.2.1',
+        jansiVersion: '2.4.1',
+        jsonVersion: '20231013',
+        mockitoVersion: '5.3.1'
+    ]
+}
+
+dependencies {
+    testImplementation "org.junit.jupiter:junit-jupiter:${versions.junitVersion}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:${versions.junitPlatformVersion}"
+    implementation "com.google.guava:guava:${versions.guavaVersion}"
+    implementation "com.formdev:flatlaf:${versions.flatlafVersion}"
+    implementation "org.fusesource.jansi:jansi:${versions.jansiVersion}"
+    implementation "org.json:json:${versions.jsonVersion}"
+    testImplementation "org.mockito:mockito-core:${versions.mockitoVersion}"
+    testImplementation "org.mockito:mockito-junit-jupiter:${versions.mockitoVersion}"
+    implementation 'org.kohsuke:github-api:1.318'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}
+
+application {
+    mainClass = 'com.github.thkwag.thymelab.launcher.ThymeLabLauncher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+jar {
+    archiveFileName = "thymelab-launcher-${versions.projectVersion.trim()}.jar"
+    manifest {
+        attributes(
+            'Main-Class': 'com.github.thkwag.thymelab.launcher.ThymeLabLauncher',
+            'Implementation-Title': 'ThymeLab',
+            'Implementation-Version': versions.projectVersion.trim(),
+            'Implementation-Vendor': 'THK',
+            'Project-Version': versions.projectVersion.trim()
+        )
+    }
+    
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    from(sourceSets.main.output)
+    from('src/main/resources') {
+        include '**/*'
+    }
+    from(rootProject.file('version.properties'))
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    destinationDirectory = file("${buildDir}/libs")
+}
+
+tasks.register('createRuntime') {
+    doLast {
+        def runtimeDir = new File("${buildDir}/runtime")
+        if (runtimeDir.exists()) {
+            runtimeDir.deleteDir()
+        }
+
+        def jlinkHome = System.getenv("JAVA_HOME")
+        def jlinkPath = "${jlinkHome}/bin/jlink"
+        if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+            jlinkPath += ".exe"
+        }
+        
+        exec {
+            commandLine jlinkPath,
+                '--add-modules', 'java.base,java.desktop,java.logging,java.prefs,java.xml,jdk.crypto.ec,' +
+                               'java.management,java.naming,java.sql,java.security.jgss,java.security.sasl,' +
+                               'jdk.security.auth,java.instrument,jdk.management,jdk.unsupported,' +
+                               'java.compiler,jdk.jdi,java.scripting,jdk.jfr,jdk.net',
+                '--strip-debug',
+                '--no-man-pages',
+                '--no-header-files',
+                '--compress=2',
+                '--output', "${buildDir}/runtime"
+        }
+    }
+}
+
+tasks.register('createInstaller') {
+    dependsOn 'createRuntime', 'jar'
+    
+    doLast {
+        def distDir = new File("${buildDir}/dist")
+        if (!distDir.exists()) {
+            distDir.mkdirs()
+        }
+        
+        def jpackageHome = System.getenv("JAVA_HOME")
+        def jpackagePath = "${jpackageHome}/bin/jpackage"
+        def osName = System.getProperty("os.name").toLowerCase()
+        def isWindows = osName.contains("windows")
+        def isMacOS = osName.contains("mac")
+        
+        if (isWindows) {
+            jpackagePath += ".exe"
+        }
+        
+        def tmpDir = new File("${buildDir}/tmp")
+        if (tmpDir.exists()) {
+            tmpDir.deleteDir()
+        }
+        tmpDir.mkdirs()
+        
+        def installerType = isWindows ? 'exe' : 'app-image'
+        def commonArgs = [
+            jpackagePath,
+            '--type', installerType,
+            '--input', "${buildDir}/libs",
+            '--dest', "${buildDir}/dist",
+            '--name', "ThymeLab",
+            '--main-jar', "thymelab-launcher-${versions.projectVersion.trim()}.jar",
+            '--main-class', 'com.github.thkwag.thymelab.launcher.ThymeLabLauncher',
+            '--resource-dir', "${buildDir}/libs",
+            '--app-version', versions.projectVersion.trim(),
+            '--vendor', 'THK',
+            '--copyright', 'Copyright © 2024 ThymeLab.',
+            '--icon', "${projectDir}/src/main/resources/icons/${isWindows ? 'icon.ico' : 'icon.icns'}",
+            '--java-options', '--add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Dapple.awt.UIElement=true',
+            '--runtime-image', "${buildDir}/runtime",
+            '--temp', "${buildDir}/tmp"
+        ]
+        
+        if (isWindows) {
+            commonArgs.addAll([
+                '--win-dir-chooser',
+                '--win-menu',
+                '--win-per-user-install',
+                '--win-shortcut',
+                '--win-upgrade-uuid', 'd3f4a1b2-5c6d-7e8f-9a0b-1c2d3e4f5a6b',
+                '--win-menu-group', 'ThymeLab',
+                '--temp', "${buildDir}/tmp",
+                '--verbose',
+                '--description', 'ThymeLab - Thymeleaf Templates, Instantly Previewed',
+                '--win-shortcut-prompt',
+                '--license-file', 'LICENSE',
+                '--about-url', 'https://github.com/thkwag/thymelab',
+                '--win-help-url', 'https://github.com/thkwag/thymelab/issues',
+                '--win-update-url', 'https://github.com/thkwag/thymelab/releases'
+            ])
+        } else if (isMacOS) {
+            commonArgs.addAll([
+                '--mac-package-name', 'ThymeLab',
+                '--mac-package-identifier', 'com.github.thkwag.thymelab',
+                '--resource-dir', "${projectDir}/src/main/resources/icons",
+                '--verbose'
+            ])
+        }
+
+        exec {
+            commandLine commonArgs
+        }
+
+        if (isMacOS) {
+            exec {
+                workingDir "${buildDir}/dist"
+                commandLine 'sh', '-c', """
+                    mkdir -p dmg-contents
+                    cp -r ThymeLab.app dmg-contents/
+                    ln -s /Applications dmg-contents/
+                    hdiutil create -volname "ThymeLab-${versions.projectVersion.trim()}" -srcfolder dmg-contents -ov -format UDZO "ThymeLab-${versions.projectVersion.trim()}.dmg"
+                    rm -rf dmg-contents
+                """
+            }
+        }
+    }
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.release = versions.javaTargetVersion.toInteger()
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    from('src/main/resources') {
+        include '**/*'
+    }
+    
+    from(rootProject.file('version.properties')) {
+        into('.')
+    }
+    
+    doLast {
+        copy {
+            from 'src/main/resources'
+            into "${buildDir}/classes/java/main"
+            include '**/*'
+        }
+        copy {
+            from rootProject.file('version.properties')
+            into "${buildDir}/classes/java/main"
+        }
+    }
+}
+
+tasks.named('run') {
+    enabled = !project.hasProperty('createInstaller')
+}
+
+tasks.withType(JavaExec) {
+    jvmArgs = [
+        '--add-opens=java.base/java.util=ALL-UNNAMED',
+        '--add-opens=java.base/java.lang=ALL-UNNAMED',
+        '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED',
+        '--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED',
+        '--add-opens=java.base/java.nio.charset=ALL-UNNAMED',
+        '--add-opens=java.base/java.net=ALL-UNNAMED',
+        '--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED',
+        '-Dapple.awt.UIElement=true'
+    ]
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+    test {
+        resources {
+            srcDirs = ['src/test/resources']
+        }
+    }
+}
