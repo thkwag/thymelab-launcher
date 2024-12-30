@@ -191,9 +191,9 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        name: ThymeLab ${{ github.ref_name }}
+        name: ThymeLab Launcher${{ github.ref_name }}
         body: |
-          ## ThymeLab ${{ github.ref_name }}
+          ## ThymeLab Launcher ${{ github.ref_name }}
 
           ### Downloads
           - **ThymeLab-${{ env.VERSION }}.exe**: Windows installer
@@ -221,8 +221,6 @@ jobs:
             ```bash
             java -jar thymelab-launcher-${{ env.VERSION }}.jar
             ```
-
-          **Full Changelog**: https://github.com/thkwag/thymelab-launcher/compare/v${{ github.event.before }}...${{ github.ref_name }}
         files: |
           jar/thymelab-launcher-${{ env.VERSION }}.jar
           installer-Windows/ThymeLab*
