@@ -1,5 +1,10 @@
-# ThymeLab Launcher
 
+
+> ⚠️ **Notice**: <br/>
+This project is no longer maintained. Please use [ThymeLab for VSCode](https://github.com/thkwag/thymelab-vscode) instead, which provides more advanced features for editing Thymeleaf templates.
+
+
+# ThymeLab Launcher
 ThymeLab Launcher is a desktop application that provides a user-friendly interface for running and managing the ThymeLab Processor. It eliminates the need for manual Java environment setup and command-line operations.
 
 <p align="center">
